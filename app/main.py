@@ -1,5 +1,6 @@
 import os
 from whatsapp_client import WhatsAppBot
+from ask_database_client import AskDatabaseClient
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,3 +12,8 @@ if __name__ == "__main__":
     # 1) send a simple “Hello”
     sid = bot.send_message(to=to_number, body="Hello")
     print("Sent plain message SID:", sid)
+
+    # 2) testing askdb
+    db_client = AskDatabaseClient()
+    result = db_client.ask(question="What are the sales trends for this quarter?")
+    print("AskYourDatabase response:", result)
