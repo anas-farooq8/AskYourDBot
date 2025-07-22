@@ -2,7 +2,7 @@ import os
 import requests
 from dotenv import load_dotenv
 
-class AskDatabaseClient:
+class AskYourDatabaseClient:
     def __init__(self):
         load_dotenv()
         self.base_url = os.getenv("ASKYOURDATABASE_BASE_URL")

@@ -35,9 +35,6 @@ ASKYOURDATABASE_BASE_URL=https://www.askyourdatabase.com  # Base URL for API req
 FLASK_ENV=development     # Flask environment (development/production)
 FLASK_DEBUG=True          # Enable/disable debug mode
 PORT=5000                 # Port for Flask server
-
-# Webhook URL
-WEBHOOK_URL=https://<your-webhook-url>/webhook  # URL for webhook handling
 ```
 
 ---

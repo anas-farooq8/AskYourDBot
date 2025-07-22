@@ -2,12 +2,12 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-from ask_database_client import AskDatabaseClient
+from ask_your_database_client import AskYourDatabaseClient
 
 load_dotenv()
 app = Flask(__name__)
 
-db_client = AskDatabaseClient()
+db_client = AskYourDatabaseClient()
 
 @app.route("/sms", methods=["POST"])
 def webhook():
