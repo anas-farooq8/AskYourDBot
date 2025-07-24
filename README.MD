@@ -34,12 +34,6 @@ All runtime configuration is managed via a `.env` file (copy `.env.example` to `
 ### .env.example
 
 ```dotenv
-##### Flask #####
-FLASK_ENV=development           # "development" or "production"
-FLASK_DEBUG=True                # "True" to enable Flask’s debugger and auto-reload
-HOST=0.0.0.0                    # Bind address for Flask
-PORT=5000                       # Port to listen on
-
 ##### Twilio #####
 TWILIO_ACCOUNT_SID=ACxxxxxxxx   # Your Twilio Account SID
 TWILIO_AUTH_TOKEN=xxxxxxxxxxxx  # Your Twilio Auth Token
@@ -56,6 +50,12 @@ ASKYOURDATABASE_BASE_URL=https://www.askyourdatabase.com
 
 ##### OpenAI #####
 OPENAI_API_KEY=sk-xxxxxxxxxxxxx # Your OpenAI API key
+
+##### Flask #####
+FLASK_ENV=development           # "development" or "production"
+FLASK_DEBUG=True                # "True" to enable Flask’s debugger and auto-reload
+HOST=0.0.0.0                    # Bind address for Flask
+PORT=5000                       # Port to listen on
 ```
 
 ### Variable Descriptions
