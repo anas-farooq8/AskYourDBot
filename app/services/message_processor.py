@@ -11,23 +11,36 @@ def process_incoming(text: str) -> dict:
     2) If yes: forward to AskYourDatabase.
     3) Use GPT to format the AYD response.
     """
-    # call AYD
-    start_time = time.time()
+    # 1) Classification step
+    start = time.time()
+    is_question = gpt.is_relevant_question(text)
+    duration = time.time() - start
+    print(f"🔍 Classification: {'YES' if is_question else 'NO'} in {duration:.2f}s", flush=True)
+
+    if not is_question:
+        # If it's not a stock/BOM query, give a canned reply
+        return {"success": True, "aiResponse": "Ask me about fabric stock or BOM."}
+
+    # 2) Call AskYourDatabase
+    start = time.time()
     result = ayd.ask(text)
-    end_time = time.time()
-    print(f"🔍 AYD result: {result} in {end_time - start_time} seconds", flush=True)
+    duration = time.time() - start
+    print(f"🔍 AYD result: {result} in {duration:.2f}s", flush=True)
+
     if not result["success"]:
+        # Propagate errors (e.g. timeout, HTTPError, AYD error payloads)
         return result
 
-    # format via GPT
-    start_time = time.time()
+    # 3) Format via GPT
+    start = time.time()
     formatted = gpt.format_response(
         question=text,
         sql=result["sql"],
         executed_sql=result["executedSql"],
         data=result["data"]
     )
-    end_time = time.time()
-    print(f"🔍 GPT result: {formatted} in {end_time - start_time} seconds", flush=True)
-    # Truncate if needed
+    duration = time.time() - start
+    print(f"🔍 GPT formatting in {duration:.2f}s:\n{formatted}", flush=True)
+
+    # Return only the human‑friendly reply
     return {"success": True, "aiResponse": formatted, "data": []}
