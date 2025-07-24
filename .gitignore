@@ -1,0 +1,8 @@
+/venv
+/.env
+/__pycache__
+/app/__pycache__
+/app/settings/__pycache__
+/app/services/__pycache__
+/app/utils/__pycache__
+/app/routes/__pycache__
