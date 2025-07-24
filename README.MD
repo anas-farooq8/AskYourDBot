@@ -63,26 +63,42 @@ MAX_SMS_CHARS=1600
 
 ## Quick Setup
 
-1. **Install dependencies**:
+1. **Create and activate virtual environment**:
+
+   **Windows:**
+
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate
+   ```
+
+   **Linux/macOS:**
+
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   ```
+
+2. **Install dependencies**:
 
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Configure environment**:
+3. **Configure environment**:
 
    ```bash
    cp .env.example .env
    # Edit .env with your credentials
    ```
 
-3. **Run the application**:
+4. **Run the application**:
 
    ```bash
    python run.py
    ```
 
-4. **Set webhook in Twilio Console**:
+5. **Set webhook in Twilio Console**:
    - Navigate to Messaging → Try it out → Send a WhatsApp message
    - Set webhook URL to: `https://your-domain.com/whatsapp`
 
@@ -182,7 +198,25 @@ python run.py
 
 For development with auto-reload:
 
+**Windows:**
+
 ```bash
+# Activate virtual environment first
+venv\Scripts\activate
+
+# Set environment variables and run
+set FLASK_ENV=development
+set FLASK_DEBUG=True
+python run.py
+```
+
+**Linux/macOS:**
+
+```bash
+# Activate virtual environment first
+source venv/bin/activate
+
+# Set environment variables and run
 export FLASK_ENV=development
 export FLASK_DEBUG=True
 python run.py
@@ -194,7 +228,3 @@ Use ngrok for local testing:
 ngrok http 5000
 # Set webhook URL in Twilio Console to: https://your-ngrok-url.ngrok.io/whatsapp
 ```
-
-## License
-
-This project is open source and available under the MIT License.
