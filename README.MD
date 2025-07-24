@@ -1,166 +1,200 @@
-## WhatsApp Business + AskYourDatabase Bot
+# WhatsApp to AskYourDatabase Bot
 
-A Flask-based webhook application that integrates Twilio's WhatsApp API with the AskYourDatabase HTTP API, using OpenAI for classification and formatting. Incoming WhatsApp messages are analyzed to determine relevance, forwarded to AskYourDatabase for SQL generation and query results, and then formatted into human-friendly replies.
+A lightweight Flask webhook that integrates Twilio WhatsApp with AskYourDatabase using **session-based conversations** and **streaming responses**.
 
----
+## Features
 
-### Project Structure
+- **Session Management**: Each WhatsApp number maintains its own 7-day conversation session
+- **Streaming Responses**: Uses SSE (Server-Sent Events) for efficient real-time responses
+- **Auto Session Renewal**: Automatically handles expired sessions with 401 error recovery
+- **Message Length Limiting**: Enforces WhatsApp character limits with truncation
+- **Thread-Safe**: CSV-based session storage with proper concurrency handling
+- **Minimal Dependencies**: Clean, efficient codebase with only essential libraries
+
+## Architecture
 
 ```
-AskYourDBot/
-├── requirements.txt       # Python dependencies
-├── run.py                 # App entry point (WSGI server)
-├── app/
-│   ├── __init__.py        # Application factory
-│   ├── settings/
-│   │   └── config.py      # Config class reading .env
-│   ├── utils/
-│   │   └── twilio_validator.py  # Twilio request signature validation
-│   ├── services/
-│   │   ├── ask_your_database.py  # HTTP client for AskYourDatabase API
-│   │   ├── gpt_client.py         # OpenAI classification & formatting
-│   │   ├── message_processor.py  # Orchestrates classification, DB call, formatting
-│   │   └── twilio_client.py      # Twilio REST API helper for outbound messages
-│   └── routes/
-│       └── routes.py            # Flask blueprint defining the /whatsapp webhook
+├── run.py                          # Flask app entry point
+├── requirements.txt                # Minimal dependencies (6 packages)
+├── ayd_sessions.csv               # Auto-generated session storage
+└── app/
+    ├── __init__.py                # App factory
+    ├── settings/config.py         # Environment configuration
+    ├── utils/twilio_validator.py  # Twilio signature validation
+    ├── services/
+    │   ├── simple_ayd_client.py   # Streaming AYD client with session management
+    │   ├── session_storage.py     # Thread-safe CSV session storage
+    │   ├── message_processor.py   # Minimal message orchestration
+    │   └── twilio_client.py       # Outbound WhatsApp messaging
+    └── routes/routes.py           # Webhook endpoint with background processing
 ```
 
----
+## How It Works
 
-## Configuration Guide
+1. **Incoming Message**: WhatsApp message arrives at `/whatsapp` webhook
+2. **Immediate Response**: Returns empty TwiML to Twilio (under 15s timeout)
+3. **Background Processing**: Spawns thread to handle message with session context
+4. **Session Management**: Gets or creates AYD session with 7-day access token
+5. **Streaming Query**: Sends question to AYD streaming API, concatenates text chunks
+6. **Reply**: Sends formatted response back via Twilio REST API
 
-All runtime configuration is managed via a `.env` file (copy `.env.example` to `.env`). **Never** commit your real `.env` to Git.
+## Configuration
 
-### .env.example
+Create a `.env` file with the following variables:
 
-```dotenv
-##### Twilio #####
-TWILIO_ACCOUNT_SID=ACxxxxxxxx   # Your Twilio Account SID
-TWILIO_AUTH_TOKEN=xxxxxxxxxxxx  # Your Twilio Auth Token
-TWILIO_FROM_NUMBER=+xxxxxxxxxxx # WhatsApp-enabled Twilio number (E.164 format)
-TWILIO_WEBHOOK_URL=https://your-ngrok-or-domain/whatsapp
-                                 # Public webhook URL in Twilio Console
-MAX_SMS_CHARS=4000              # Max characters per WhatsApp message (≤4096)
+```bash
+# Twilio WhatsApp
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_FROM_NUMBER=+1234567890
+TWILIO_WEBHOOK_URL=https://your-domain.com/whatsapp
 
-##### AskYourDatabase #####
-ASKYOURDATABASE_CHAT_ID=xxxxxxx # AskYourDatabase chatbot ID
-ASKYOURDATABASE_API_KEY=xxxxxxx # AskYourDatabase API key
-ASKYOURDATABASE_BASE_URL=https://www.askyourdatabase.com
-                                 # Base endpoint for API requests
+# AskYourDatabase
+ASKYOURDATABASE_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ASKYOURDATABASE_CHAT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-##### OpenAI #####
-OPENAI_API_KEY=sk-xxxxxxxxxxxxx # Your OpenAI API key
-
-##### Flask #####
-FLASK_ENV=development           # "development" or "production"
-FLASK_DEBUG=True                # "True" to enable Flask’s debugger and auto-reload
-HOST=0.0.0.0                    # Bind address for Flask
-PORT=5000                       # Port to listen on
+# App Settings
+FLASK_ENV=production
+FLASK_DEBUG=False
+HOST=0.0.0.0
+PORT=5000
+MAX_SMS_CHARS=1600
 ```
 
-### Variable Descriptions
+## Quick Setup
 
-| Variable                     | Purpose                                                               |
-| ---------------------------- | --------------------------------------------------------------------- |
-| **FLASK_ENV**                | `development` enables debug & auto-reload; `production` disables them |
-| **FLASK_DEBUG**              | `True` or `False`—toggles Flask debugger & reloader                   |
-| **HOST**                     | IP/interface to bind Flask (e.g., `0.0.0.0`)                          |
-| **PORT**                     | TCP port for Flask server                                             |
-| **TWILIO_ACCOUNT_SID**       | Twilio account identifier                                             |
-| **TWILIO_AUTH_TOKEN**        | Secret token for request validation & REST calls                      |
-| **TWILIO_FROM_NUMBER**       | WhatsApp-enabled number, prefixed with `+` and E.164                  |
-| **TWILIO_WEBHOOK_URL**       | Exact public URL (including `https://`) for incoming messages         |
-| **MAX_SMS_CHARS**            | Maximum message length to send (WhatsApp cap \~4096 chars)            |
-| **ASKYOURDATABASE_CHAT_ID**  | Identifier for your AskYourDatabase chatbot                           |
-| **ASKYOURDATABASE_API_KEY**  | Secret key to authenticate AskYourDatabase requests                   |
-| **ASKYOURDATABASE_BASE_URL** | Base URL for AskYourDatabase API                                      |
-| **OPENAI_API_KEY**           | Secret key for OpenAI ChatCompletion API                              |
-
----
-
-## Setup & Getting Started
-
-1. **Clone the repository**
-
-2. **Create & activate a virtual environment**
-
-   ```bash
-   python -m venv venv
-   # Windows
-   venv\Scripts\activate
-   # macOS/Linux
-   source venv/bin/activate
-   ```
-
-3. **Install dependencies**
+1. **Install dependencies**:
 
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Configure environment**
+2. **Configure environment**:
 
    ```bash
    cp .env.example .env
-   # Edit .env and fill in all required variables
+   # Edit .env with your credentials
    ```
 
-5. **Run locally**
+3. **Run the application**:
 
-   - **Development** (auto-reload):
+   ```bash
+   python run.py
+   ```
 
-     ```bash
-     export FLASK_ENV=development
-     flask run --host=$HOST --port=$PORT
-     ```
+4. **Set webhook in Twilio Console**:
+   - Navigate to Messaging → Try it out → Send a WhatsApp message
+   - Set webhook URL to: `https://your-domain.com/whatsapp`
 
-   - **Production**:
+## Session Management
 
-     ```bash
-     export FLASK_ENV=production
-     python run.py
-     ```
+- **Session Creation**: Automatic on first message from new WhatsApp number
+- **Session Storage**: CSV file (`ayd_sessions.csv`) with thread-safe access
+- **Session Expiry**: 7 days, automatically renewed on 401 errors
+- **Session Cleanup**: Expired sessions removed automatically
 
-6. **Expose to Twilio**
+## Error Handling
 
-   - If local, start ngrok: `ngrok http $PORT`
-   - Configure Twilio Console **Messaging → WhatsApp Sandbox** webhook to `https://<ngrok-id>.ngrok-free.app/whatsapp`
+- **401 Errors**: Automatically creates new session and retries request
+- **Timeouts**: 60-second timeout with user-friendly error message
+- **Rate Limits**: Built-in request handling with proper error responses
+- **Message Limits**: Automatic truncation to WhatsApp character limits
 
----
+## Dependencies
 
-## Process Flow
+```
+flask==2.3.3          # Web framework
+twilio==8.10.3         # WhatsApp messaging
+python-dotenv==1.0.0   # Environment variables
+sseclient-py==1.8.0    # Server-sent events for streaming
+requests==2.31.0       # HTTP client
+gunicorn==21.2.0       # Production WSGI server
+```
 
-This project uses an **“immediate ACK + background work”** pattern to ensure Twilio never times out your webhook:
+## Security
 
-1. **Message Received**
+- Twilio request signature validation
+- Environment-based configuration
+- No hardcoded credentials
+- Thread-safe session management
 
-   - User sends a WhatsApp message to your Twilio number.
-   - Twilio makes a POST request to your `/whatsapp` webhook.
+## Production Deployment
 
-2. **Immediate Webhook ACK**
+For production, use a WSGI server like Gunicorn:
 
-   - The handler validates the request, extracts the message, then **immediately** returns an empty TwiML `<Response></Response>` (or a brief placeholder).
-   - This ensures the webhook returns in milliseconds, well under Twilio’s 15 s limit.
+```bash
+gunicorn -w 4 -b 0.0.0.0:5000 run:app
+```
 
-3. **Background Processing**
+Or use the built-in Flask server by setting environment variables:
 
-   - A background thread (or external job worker) picks up the message and runs `process_incoming()`, which:
+```bash
+export FLASK_ENV=production
+export FLASK_DEBUG=False
+python run.py
+```
 
-     1. Forwards the raw text to AskYourDatabase API.
-     2. Receives SQL, executed SQL, AI’s explanation, and result data.
-     3. Calls `GPTClient.format_response(...)` to generate the final WhatsApp‑friendly message.
+## File Structure
 
-4. **Final Reply via REST API**
+### Core Files
 
-   - Once the formatted message is ready, the background task uses the Twilio REST API (`send_whatsapp_message(...)`) to send the reply back to the user as a separate WhatsApp message.
+- **`run.py`**: Application entry point that creates and runs the Flask app
+- **`requirements.txt`**: Minimal dependency list for production deployment
+- **`ayd_sessions.csv`**: Auto-generated CSV file storing WhatsApp-to-AYD session mappings
 
----
+### Application Module (`app/`)
 
-## Security Best Practices
+- **`__init__.py`**: Flask application factory function
+- **`settings/config.py`**: Centralized configuration loaded from environment variables
 
-- **Never** commit your real `.env` file.
-- Use `.env.example` for placeholders.
-- Restrict access to production secrets; consider a managed secrets vault.
-- Rotate API keys and tokens regularly.
+### Services (`app/services/`)
 
----
+- **`simple_ayd_client.py`**: Session-based AskYourDatabase client with streaming support
+- **`session_storage.py`**: Thread-safe CSV-based session storage
+- **`message_processor.py`**: Minimal message orchestration logic
+- **`twilio_client.py`**: Outbound WhatsApp messaging via Twilio REST API
+
+### Routes (`app/routes/`)
+
+- **`routes.py`**: Flask blueprint with webhook endpoint and background processing
+
+### Utilities (`app/utils/`)
+
+- **`twilio_validator.py`**: Twilio request signature validation for security
+
+## Environment Variables
+
+| Variable                  | Description                                           | Required |
+| ------------------------- | ----------------------------------------------------- | -------- |
+| `TWILIO_ACCOUNT_SID`      | Your Twilio Account SID                               | Yes      |
+| `TWILIO_AUTH_TOKEN`       | Your Twilio Auth Token                                | Yes      |
+| `TWILIO_FROM_NUMBER`      | WhatsApp-enabled Twilio number                        | Yes      |
+| `TWILIO_WEBHOOK_URL`      | Public webhook URL for incoming messages              | Yes      |
+| `ASKYOURDATABASE_API_KEY` | AskYourDatabase API key                               | Yes      |
+| `ASKYOURDATABASE_CHAT_ID` | AskYourDatabase chatbot ID                            | Yes      |
+| `FLASK_ENV`               | Flask environment (`production` or `development`)     | No       |
+| `FLASK_DEBUG`             | Enable Flask debug mode (`True` or `False`)           | No       |
+| `HOST`                    | Host to bind Flask app (default: `0.0.0.0`)           | No       |
+| `PORT`                    | Port to bind Flask app (default: `5000`)              | No       |
+| `MAX_SMS_CHARS`           | Max characters per WhatsApp message (default: `1600`) | No       |
+
+## Development
+
+For development with auto-reload:
+
+```bash
+export FLASK_ENV=development
+export FLASK_DEBUG=True
+python run.py
+```
+
+Use ngrok for local testing:
+
+```bash
+ngrok http 5000
+# Set webhook URL in Twilio Console to: https://your-ngrok-url.ngrok.io/whatsapp
+```
+
+## License
+
+This project is open source and available under the MIT License.
