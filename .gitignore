@@ -1,8 +1,14 @@
-/venv
-/.env
-/__pycache__
-/app/__pycache__
-/app/settings/__pycache__
-/app/services/__pycache__
-/app/utils/__pycache__
-/app/routes/__pycache__
+# Virtual env
+venv/
+
+# Local env vars file
+.env
+
+# Python bytecode caches
+__pycache__/
+
+# Compiled Python files
+*.py[cod]
+
+# Session File
+ayd_session.csv
