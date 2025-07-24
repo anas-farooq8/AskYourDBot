@@ -40,7 +40,7 @@ class AskYourDatabaseClient:
 
         try:
             # POST the question, timeout quickly if AYD is unresponsive
-            resp = requests.post(self.url, json=payload, headers=self.headers, timeout=10)
+            resp = requests.post(self.url, json=payload, headers=self.headers, timeout=20)
             resp.raise_for_status()
         except requests.Timeout:
             return {

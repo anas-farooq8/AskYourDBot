@@ -130,32 +130,29 @@ PORT=5000                       # Port to listen on
 
 ## Process Flow
 
+This project uses an **“immediate ACK + background work”** pattern to ensure Twilio never times out your webhook:
+
 1. **Message Received**
 
    - User sends a WhatsApp message to your Twilio number.
    - Twilio makes a POST request to your `/whatsapp` webhook.
 
-2. **Classification**
+2. **Immediate Webhook ACK**
 
-   - The webhook handler calls `GPTClient.is_relevant_question(...)`.
-   - If classification returns **NO**, the webhook immediately replies with a help message and stops further processing.
+   - The handler validates the request, extracts the message, then **immediately** returns an empty TwiML `<Response></Response>` (or a brief placeholder).
+   - This ensures the webhook returns in milliseconds, well under Twilio’s 15 s limit.
 
-3. **Immediate Acknowledgment**
+3. **Background Processing**
 
-   - If classification returns **YES**, the webhook immediately replies with a placeholder via TwiML:
-     "Thanks! I'm working on your request and will reply shortly."
-   - Returns this TwiML in under 15 seconds to satisfy Twilio's timeout.
+   - A background thread (or external job worker) picks up the message and runs `process_incoming()`, which:
 
-4. **Background Processing**
+     1. Forwards the raw text to AskYourDatabase API.
+     2. Receives SQL, executed SQL, AI’s explanation, and result data.
+     3. Calls `GPTClient.format_response(...)` to generate the final WhatsApp‑friendly message.
 
-   - A background thread (or job worker) runs `process_incoming()`, which:
-     a. Sends the question to AskYourDatabase API.
-     b. Receives SQL, executed SQL, and data.
-     c. Calls `GPTClient.format_response(...)` to generate a final human-friendly message.
+4. **Final Reply via REST API**
 
-5. **Final Reply**
-
-   - Once formatting completes, the background process uses the Twilio REST API (`send_whatsapp_message(...)`) to deliver the final answer to the user as a separate WhatsApp message.
+   - Once the formatted message is ready, the background task uses the Twilio REST API (`send_whatsapp_message(...)`) to send the reply back to the user as a separate WhatsApp message.
 
 ---
 
