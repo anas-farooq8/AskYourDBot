@@ -1,89 +1,138 @@
-# Project Configuration Guide
+## WhatsApp Business + AskYourDatabase Bot
 
-This project leverages a `.env` file to securely manage sensitive configuration variables for seamless integration with Twilio, AskYourDatabase, Flask, and webhook services.
-
-> **Note:** Never commit your actual `.env` file to version control. Use `.env.example` for reference and copy it to `.env` in your local environment.
+A Flask-based webhook application that integrates Twilio's WhatsApp API with the AskYourDatabase HTTP API, using OpenAI for classification and formatting. Incoming WhatsApp messages are analyzed to determine relevance, forwarded to AskYourDatabase for SQL generation and query results, and then formatted into human-friendly replies.
 
 ---
 
-## Table of Contents
+### Project Structure
 
-1. [`.env` File Structure](#env-file-structure)
-2. [Setup Instructions](#setup-instructions)
-3. [Getting Started](#getting-started)
-4. [Security Considerations](#security-considerations)
-
----
-
-## `.env` File Structure
-
-Populate your local `.env` file with the following variables:
-
-```dotenv
-# AskYourDatabase API Configuration
-ASKYOURDATABASE_CHAT_ID=your_chat_id             # Unique Chat ID for AskYourDatabase
-ASKYOURDATABASE_API_KEY=your_api_key             # API Key for AskYourDatabase authentication
-ASKYOURDATABASE_BASE_URL=https://www.askyourdatabase.com  # Base URL for API requests
-
-# Flask Configuration
-FLASK_ENV=development     # Flask environment (development/production)
-FLASK_DEBUG=True          # Enable/disable debug mode
-PORT=5000                 # Port for Flask server
+```
+AskYourDBot/
+├── requirements.txt       # Python dependencies
+├── run.py                 # App entry point (WSGI server)
+├── app/
+│   ├── __init__.py        # Application factory
+│   ├── settings/
+│   │   └── config.py      # Config class reading .env
+│   ├── utils/
+│   │   └── twilio_validator.py  # Twilio request signature validation
+│   ├── services/
+│   │   ├── ask_your_database.py  # HTTP client for AskYourDatabase API
+│   │   ├── gpt_client.py         # OpenAI classification & formatting
+│   │   ├── message_processor.py  # Orchestrates classification, DB call, formatting
+│   │   └── twilio_client.py      # Twilio REST API helper for outbound messages
+│   ├── routes/
+│       └── routes.py          # Flask blueprint defining the /whatsapp webhook
 ```
 
 ---
 
-## Setup Instructions
+## Configuration Guide
 
-Follow these steps to prepare your local environment:
+All runtime configuration is managed via a `.env` file (copy `.env.example` to `.env`). **Never** commit your real `.env` to Git.
 
-1. **Create a Virtual Environment**
+### .env.example
+
+```dotenv
+##### Flask #####
+FLASK_ENV=development           # "development" or "production"
+FLASK_DEBUG=True                # "True" to enable Flask’s debugger and auto-reload
+HOST=0.0.0.0                    # Bind address for Flask
+PORT=5000                       # Port to listen on
+
+##### Twilio #####
+TWILIO_ACCOUNT_SID=ACxxxxxxxx   # Your Twilio Account SID
+TWILIO_AUTH_TOKEN=xxxxxxxxxxxx  # Your Twilio Auth Token
+TWILIO_FROM_NUMBER=+xxxxxxxxxxx # WhatsApp-enabled Twilio number (E.164 format)
+TWILIO_WEBHOOK_URL=https://your-ngrok-or-domain/whatsapp
+                                 # Public webhook URL in Twilio Console
+MAX_SMS_CHARS=4000              # Max characters per WhatsApp message (≤4096)
+
+##### AskYourDatabase #####
+ASKYOURDATABASE_CHAT_ID=xxxxxxx # AskYourDatabase chatbot ID
+ASKYOURDATABASE_API_KEY=xxxxxxx # AskYourDatabase API key
+ASKYOURDATABASE_BASE_URL=https://www.askyourdatabase.com
+                                 # Base endpoint for API requests
+
+##### OpenAI #####
+OPENAI_API_KEY=sk-xxxxxxxxxxxxx # Your OpenAI API key
+```
+
+### Variable Descriptions
+
+| Variable                     | Purpose                                                               |
+| ---------------------------- | --------------------------------------------------------------------- |
+| **FLASK_ENV**                | `development` enables debug & auto-reload; `production` disables them |
+| **FLASK_DEBUG**              | `True` or `False`—toggles Flask debugger & reloader                   |
+| **HOST**                     | IP/interface to bind Flask (e.g., `0.0.0.0`)                          |
+| **PORT**                     | TCP port for Flask server                                             |
+| **TWILIO_ACCOUNT_SID**       | Twilio account identifier                                             |
+| **TWILIO_AUTH_TOKEN**        | Secret token for request validation & REST calls                      |
+| **TWILIO_FROM_NUMBER**       | WhatsApp-enabled number, prefixed with `+` and E.164                  |
+| **TWILIO_WEBHOOK_URL**       | Exact public URL (including `https://`) for incoming messages         |
+| **MAX_SMS_CHARS**            | Maximum message length to send (WhatsApp cap \~4096 chars)            |
+| **ASKYOURDATABASE_CHAT_ID**  | Identifier for your AskYourDatabase chatbot                           |
+| **ASKYOURDATABASE_API_KEY**  | Secret key to authenticate AskYourDatabase requests                   |
+| **ASKYOURDATABASE_BASE_URL** | Base URL for AskYourDatabase API                                      |
+| **OPENAI_API_KEY**           | Secret key for OpenAI ChatCompletion API                              |
+
+---
+
+## Setup & Getting Started
+
+1. **Clone the repository**
+
+2. **Create & activate a virtual environment**
 
    ```bash
    python -m venv venv
+   # Windows
+   venv\Scripts\activate
+   # macOS/Linux
+   source venv/bin/activate
    ```
 
-2. **Activate the Virtual Environment**
-
-   - **Windows:**
-
-     ```bash
-     venv\Scripts\activate
-     ```
-
-   - **macOS/Linux:**
-
-     ```bash
-     source venv/bin/activate
-     ```
-
-3. **Install Dependencies**
+3. **Install dependencies**
 
    ```bash
    pip install -r requirements.txt
    ```
 
----
-
-## Getting Started
-
-1. Copy `.env.example` to `.env` and update the values with your actual credentials.
-2. Activate your virtual environment (see Step 2 above).
-3. Install dependencies if you haven’t already (see Step 3 above).
-4. Run the Flask application:
+4. **Configure environment**
 
    ```bash
-   flask run --port=$PORT
+   cp .env.example .env
+   # Edit .env and fill in all required variables
    ```
 
-5. Your server should now be listening on `http://localhost:5000` (or the port you specified).
+5. **Run locally**
+
+   - **Development** (auto-reload):
+
+     ```bash
+     export FLASK_ENV=development
+     flask run --host=$HOST --port=$PORT
+     ```
+
+   - **Production**:
+
+     ```bash
+     export FLASK_ENV=production
+     python run.py
+     ```
+
+6. **Expose to Twilio**
+
+   - If local, start ngrok: `ngrok http $PORT`
+   - Configure Twilio Console **Messaging → WhatsApp Sandbox** webhook to `https://<ngrok-id>.ngrok-free.app/whatsapp`
 
 ---
 
-## Security Considerations
+## Security Best Practices
 
-- **Never** commit your `.env` file to Git or any other version control.
-- Share only the `.env.example` file with placeholders for sensitive values.
-- Ensure access to production credentials is restricted to authorized personnel.
+- **Never** commit your real `.env` file.
+- Use `.env.example` for placeholders.
+- Restrict access to production secrets; consider a managed secrets vault.
+- Rotate API keys and tokens regularly.
 
 ---
