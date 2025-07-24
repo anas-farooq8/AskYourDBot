@@ -21,8 +21,8 @@ AskYourDBot/
 │   │   ├── gpt_client.py         # OpenAI classification & formatting
 │   │   ├── message_processor.py  # Orchestrates classification, DB call, formatting
 │   │   └── twilio_client.py      # Twilio REST API helper for outbound messages
-│   ├── routes/
-│       └── routes.py          # Flask blueprint defining the /whatsapp webhook
+│   └── routes/
+│       └── routes.py            # Flask blueprint defining the /whatsapp webhook
 ```
 
 ---
@@ -125,6 +125,37 @@ PORT=5000                       # Port to listen on
 
    - If local, start ngrok: `ngrok http $PORT`
    - Configure Twilio Console **Messaging → WhatsApp Sandbox** webhook to `https://<ngrok-id>.ngrok-free.app/whatsapp`
+
+---
+
+## Process Flow
+
+1. **Message Received**
+
+   - User sends a WhatsApp message to your Twilio number.
+   - Twilio makes a POST request to your `/whatsapp` webhook.
+
+2. **Classification**
+
+   - The webhook handler calls `GPTClient.is_relevant_question(...)`.
+   - If classification returns **NO**, the webhook immediately replies with a help message and stops further processing.
+
+3. **Immediate Acknowledgment**
+
+   - If classification returns **YES**, the webhook immediately replies with a placeholder via TwiML:
+     "Thanks! I'm working on your request and will reply shortly."
+   - Returns this TwiML in under 15 seconds to satisfy Twilio's timeout.
+
+4. **Background Processing**
+
+   - A background thread (or job worker) runs `process_incoming()`, which:
+     a. Sends the question to AskYourDatabase API.
+     b. Receives SQL, executed SQL, and data.
+     c. Calls `GPTClient.format_response(...)` to generate a final human-friendly message.
+
+5. **Final Reply**
+
+   - Once formatting completes, the background process uses the Twilio REST API (`send_whatsapp_message(...)`) to deliver the final answer to the user as a separate WhatsApp message.
 
 ---
 
