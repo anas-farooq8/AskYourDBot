@@ -20,12 +20,6 @@ This project leverages a `.env` file to securely manage sensitive configuration 
 Populate your local `.env` file with the following variables:
 
 ```dotenv
-# Twilio WhatsApp Configuration
-TWILIO_ACCOUNT_SID=your_twilio_account_sid       # Twilio Account SID for authentication
-TWILIO_AUTH_TOKEN=your_twilio_auth_token         # Twilio Auth Token for secure API access
-TWILIO_WHATSAPP_NUMBER=whatsapp:+xxxxxxxxxxx      # Sender WhatsApp number (Twilio)
-TO_WHATSAPP_NUMBER=whatsapp:+xxxxxxxxxxx         # Recipient WhatsApp number
-
 # AskYourDatabase API Configuration
 ASKYOURDATABASE_CHAT_ID=your_chat_id             # Unique Chat ID for AskYourDatabase
 ASKYOURDATABASE_API_KEY=your_api_key             # API Key for AskYourDatabase authentication
