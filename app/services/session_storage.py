@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from typing import Optional, Dict
 import threading
+from app.utils.logger import get_logger
 
 class CSVSessionStorage:
     """
@@ -14,6 +15,7 @@ class CSVSessionStorage:
     def __init__(self, csv_file_path: str = "sessions.csv"):
         self.csv_file_path = csv_file_path
         self.lock = threading.Lock()
+        self.logger = get_logger(__name__)
         self._ensure_csv_exists()
     
     def _ensure_csv_exists(self):
@@ -82,8 +84,10 @@ class CSVSessionStorage:
                         str(expires_at),
                         datetime.now().isoformat()
                     ])
+                self.logger.debug(f"💾 Saved session for {phone_number}")
                 return True
-            except Exception:
+            except Exception as e:
+                self.logger.error(f"❌ Error saving session for {phone_number}: {e}")
                 return False
     
     def _remove_session_unsafe(self, phone_number: str):
@@ -106,8 +110,8 @@ class CSVSessionStorage:
             with open(self.csv_file_path, 'w', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 writer.writerows(rows_to_keep)
-        except Exception:
-            pass  # Fail silently
+        except Exception as e:
+            self.logger.error(f"❌ Error removing session for {phone_number}: {e}")
     
     def remove_session(self, phone_number: str) -> bool:
         """
@@ -117,6 +121,8 @@ class CSVSessionStorage:
         with self.lock:
             try:
                 self._remove_session_unsafe(phone_number)
+                self.logger.debug(f"🗑️ Removed session for {phone_number}")
                 return True
-            except Exception:
+            except Exception as e:
+                self.logger.error(f"❌ Error removing session for {phone_number}: {e}")
                 return False
