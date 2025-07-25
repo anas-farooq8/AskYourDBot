@@ -54,7 +54,6 @@ ASKYOURDATABASE_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ASKYOURDATABASE_CHAT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # App Settings
-FLASK_ENV=production
 FLASK_DEBUG=False
 HOST=0.0.0.0
 PORT=5000
@@ -145,7 +144,6 @@ gunicorn -w 4 -b 0.0.0.0:5000 run:app
 Or use the built-in Flask server by setting environment variables:
 
 ```bash
-export FLASK_ENV=production
 export FLASK_DEBUG=False
 python run.py
 ```
@@ -188,7 +186,6 @@ python run.py
 | `TWILIO_WEBHOOK_URL`      | Public webhook URL for incoming messages              | Yes      |
 | `ASKYOURDATABASE_API_KEY` | AskYourDatabase API key                               | Yes      |
 | `ASKYOURDATABASE_CHAT_ID` | AskYourDatabase chatbot ID                            | Yes      |
-| `FLASK_ENV`               | Flask environment (`production` or `development`)     | No       |
 | `FLASK_DEBUG`             | Enable Flask debug mode (`True` or `False`)           | No       |
 | `HOST`                    | Host to bind Flask app (default: `0.0.0.0`)           | No       |
 | `PORT`                    | Port to bind Flask app (default: `5000`)              | No       |
@@ -205,7 +202,6 @@ For development with auto-reload:
 venv\Scripts\activate
 
 # Set environment variables and run
-set FLASK_ENV=development
 set FLASK_DEBUG=True
 python run.py
 ```
@@ -217,7 +213,6 @@ python run.py
 source venv/bin/activate
 
 # Set environment variables and run
-export FLASK_ENV=development
 export FLASK_DEBUG=True
 python run.py
 ```

@@ -12,3 +12,7 @@ __pycache__/
 
 # Session File
 ayd_sessions.csv
+
+# Log files and directory
+logs/
+*.log

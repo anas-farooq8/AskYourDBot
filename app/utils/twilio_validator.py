@@ -1,9 +1,11 @@
 from flask import request, abort
 from twilio.request_validator import RequestValidator
 from app.settings.config import Config
+from app.utils.logger import get_logger
 
 # Initialize Twilio RequestValidator with your Auth Token from config
 _validator = RequestValidator(Config.TWILIO_AUTH_TOKEN)
+logger = get_logger(__name__)
 
 def validate_twilio_request():
     """
@@ -24,4 +26,8 @@ def validate_twilio_request():
     # Perform the cryptographic check
     if not _validator.validate(url, params, signature):
         # Log failure and reject the request
+        logger.warning(f"🚫 Invalid Twilio signature from {request.remote_addr}")
+        logger.debug(f"Expected URL: {url}, Signature: {signature[:20]}...")
         abort(403, description="Invalid Twilio signature")
+    
+    logger.debug("✅ Twilio signature validated successfully")
