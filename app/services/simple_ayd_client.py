@@ -179,10 +179,6 @@ class SessionBasedAYDClient:
             if not full_response:
                 full_response = "I processed your request but have no specific response to share."
             
-            # Limit response to WhatsApp character limit
-            if len(full_response) > Config.MAX_MSG_CHARS:
-                full_response = full_response[:Config.MAX_MSG_CHARS-10] + "...(truncated)"
-            
             self.logger.info(f"✅ Got response for {phone_number}: {len(full_response)} chars")
             
             return {

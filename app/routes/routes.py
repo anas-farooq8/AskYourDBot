@@ -3,6 +3,7 @@ from flask import Blueprint, request
 from twilio.twiml.messaging_response import MessagingResponse
 
 from app.utils.twilio_validator import validate_twilio_request
+from app.utils.rate_limiter import rate_limiter
 from app.services.message_processor import process_incoming
 from app.services.twilio_client import send_whatsapp_message
 from app.utils.logger import get_logger
@@ -24,9 +25,16 @@ def whatsapp_webhook():
 
     incoming = request.values.get("Body", "").strip()
     sender = request.values.get("From")  # WhatsApp phone number like "whatsapp:+15551234567"
-    
     # Clean phone number (remove whatsapp: prefix if present)
     phone_number = sender.replace("whatsapp:", "") if sender else ""
+
+    # Rate limiting check
+    if not rate_limiter.is_allowed(phone_number):
+        wait_time = rate_limiter.get_wait_time(phone_number)
+        logger.warning(f"🚫 Rate limited user {phone_number}, wait {wait_time}s")
+        response = MessagingResponse()
+        response.message(f"Please wait {wait_time} seconds before sending another request.")
+        return str(response)
     
     logger.info(f"📥 Received from {phone_number}: {incoming[:100]}{'...' if len(incoming) > 100 else ''}")
 
