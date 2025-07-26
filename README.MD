@@ -1,6 +1,6 @@
 # AskYourDatabase WhatsApp Bot
 
-A WhatsApp chatbot that connects to AskYourDatabase API for intelligent data queries using session-based conversations. Built with Flask and Twilio for seamless WhatsApp integration.
+A WhatsApp chatbot that connects to AskYourDatabase API for intelligent data queries using session-based conversations. Built with Flask and Twilio for seamless WhatsApp integration with advanced message handling and rate limiting.
 
 ## Features
 
@@ -8,16 +8,17 @@ A WhatsApp chatbot that connects to AskYourDatabase API for intelligent data que
 - **Streaming API Integration**: Uses Server-Sent Events (SSE) for efficient real-time responses from AskYourDatabase
 - **Auto Session Renewal**: Automatically handles expired sessions with 401 error recovery
 - **WhatsApp Integration**: Seamless messaging through Twilio with 15-second webhook timeout compliance
-- **Message Length Limiting**: Enforces WhatsApp's 1600 character limit with smart truncation
+- **Intelligent Message Splitting**: Automatically splits long responses into multiple WhatsApp messages with smart breakpoint detection
+- **Rate Limiting Protection**: Built-in rate limiter prevents abuse with configurable requests per minute per user
 - **Thread-Safe Storage**: CSV-based session storage with proper concurrency handling
 - **Rotating Logs**: 5MB log files with automatic rotation for production monitoring
 
-## Architecture
-
-The application follows a webhook-based architecture with background processing to handle Twilio's 15-second timeout requirement:
+### Architecture
 
 ```
-WhatsApp User → Twilio Webhook (15s timeout) → Flask App → Background Thread → AskYourDatabase API → Response
+User Message → Rate Check → Session Lookup → AYD Query → Response Split → Multiple WhatsApp Messages
+     ↓              ↓             ↓             ↓             ↓                    ↓
+   📱 WhatsApp   🚦 Limiter    💾 CSV DB    🤖 AI API    ✂️ Splitter        📤 Twilio
 ```
 
 ### Twilio Webhook Constraints
@@ -25,7 +26,8 @@ WhatsApp User → Twilio Webhook (15s timeout) → Flask App → Background Thre
 - **15-Second Timeout**: Twilio requires webhook responses within 15 seconds
 - **Immediate TwiML Response**: App returns empty TwiML immediately to avoid timeout
 - **Background Processing**: Database queries happen asynchronously in separate thread
-- **Character Limit**: WhatsApp messages limited to 1600 characters maximum
+- **Smart Message Splitting**: Long responses automatically split into multiple messages with part indicators
+- **Rate Limiting**: Users limited to 5 requests per minute to prevent abuse (configurable)
 
 ### AskYourDatabase Integration
 
@@ -40,13 +42,14 @@ WhatsApp User → Twilio Webhook (15s timeout) → Flask App → Background Thre
 
 1. **Message Reception**: User sends WhatsApp message to Twilio number
 2. **Webhook Call**: Twilio sends POST request to `/whatsapp` endpoint
-3. **Immediate Response**: Flask returns empty TwiML within 15-second limit
-4. **Background Thread**: Spawn background processing thread for database query
-5. **Session Management**: Check for existing session or create new 7-day session
-6. **Database Query**: Send question to AskYourDatabase streaming API
-7. **Response Processing**: Concatenate streaming text chunks and format response
-8. **Character Limit Check**: Ensure response fits within 1600 character limit
-9. **WhatsApp Reply**: Send analysis back via Twilio REST API
+3. **Rate Limit Check**: Verify user hasn't exceeded 5 requests per minute limit
+4. **Immediate Response**: Flask returns empty TwiML within 15-second limit
+5. **Background Thread**: Spawn background processing thread for database query
+6. **Session Management**: Check for existing session or create new 7-day session
+7. **Database Query**: Send question to AskYourDatabase streaming API
+8. **Response Processing**: Concatenate streaming text chunks and format response
+9. **Message Splitting**: Automatically split long responses into multiple parts with smart breakpoints
+10. **WhatsApp Reply**: Send analysis back via Twilio REST API (single or multiple messages)
 
 ### Session Management
 
@@ -55,6 +58,20 @@ WhatsApp User → Twilio Webhook (15s timeout) → Flask App → Background Thre
 3. **Session Expiry**: Automatically renews expired sessions (401 errors)
 4. **Storage**: Thread-safe CSV storage with automatic cleanup
 
+### Rate Limiting
+
+1. **Per-User Limits**: Each phone number limited to 5 requests per minute (configurable)
+2. **In-Memory Tracking**: Fast rate limit checking with automatic cleanup of old requests
+3. **Graceful Degradation**: Rate-limited users receive informative wait time messages
+4. **Thread-Safe**: Concurrent request handling with proper locking mechanisms
+
+### Message Splitting
+
+1. **Smart Breakpoints**: Splits at paragraphs, sentences, or words for natural reading
+2. **Part Indicators**: Adds "[Part 1/3]" headers to multi-part messages
+3. **Character Optimization**: Reserves space for headers while maximizing content
+4. **Fallback Handling**: Graceful word-boundary splitting when optimal points unavailable
+
 ## Project Structure
 
 ```
@@ -62,16 +79,17 @@ AskYourDBot/
 ├── app/
 │   ├── __init__.py              # Flask application factory with logging setup
 │   ├── routes/
-│   │   └── routes.py            # Webhook endpoint handler
+│   │   └── routes.py            # Webhook endpoint handler with rate limiting
 │   ├── services/
 │   │   ├── message_processor.py # Core message processing logic
 │   │   ├── simple_ayd_client.py # AskYourDatabase session-based client
 │   │   ├── session_storage.py   # CSV-based session management
-│   │   └── twilio_client.py     # Twilio messaging service
+│   │   └── twilio_client.py     # Twilio messaging with auto-splitting
 │   ├── settings/
 │   │   └── config.py            # Configuration management
 │   └── utils/
 │       ├── logger.py            # Rotating log system (5MB files)
+│       ├── rate_limiter.py      # In-memory rate limiting system
 │       └── twilio_validator.py  # Webhook signature validation
 ├── logs/                        # Application log files (auto-created)
 ├── ayd_sessions.csv            # Session storage (auto-created)
@@ -101,6 +119,9 @@ FLASK_DEBUG=False
 HOST=0.0.0.0
 PORT=5000
 MAX_SMS_CHARS=1600
+
+# Rate Limiting Configuration
+RATE_LIMITER_MAX_REQUESTS_PER_MINUTE=5
 ```
 
 ## Quick Setup
@@ -148,7 +169,7 @@ MAX_SMS_CHARS=1600
 
 ```
 flask==2.3.3          # Web framework
-twilio==8.10.3         # WhatsApp messaging
+twilio==8.10.3         # WhatsApp messaging with auto-splitting
 python-dotenv==1.0.0   # Environment variables
 sseclient-py==1.8.0    # Server-sent events for streaming
 requests==2.31.0       # HTTP client

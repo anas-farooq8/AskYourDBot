@@ -39,3 +39,7 @@ class Config:
     AYD_CHAT_ID = os.getenv("ASKYOURDATABASE_CHAT_ID")
     # Base URL for the AskYourDatabase service
     AYD_BASE_URL = "https://www.askyourdatabase.com"
+
+    # Rate Limiter settings
+    # Maximum requests per user per minute to prevent abuse
+    RATE_LIMITER_MAX_REQUESTS_PER_MINUTE = int(os.getenv("RATE_LIMITER_MAX_REQUESTS_PER_MINUTE", 5))
